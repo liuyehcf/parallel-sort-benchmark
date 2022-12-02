@@ -4,19 +4,19 @@
 #include <mutex>
 #include <thread>
 
-void SimpleMergeSorter::sort(std::vector<int32_t>& nums, const size_t processor_num) {
+void SimpleMergeSorter::sort(std::vector<int32_t>& nums, const int32_t processor_num) {
     std::vector<std::vector<int32_t>> partial_nums;
     partial_nums.resize(processor_num);
 
-    for (size_t i = 0; i < processor_num; ++i) {
+    for (int32_t i = 0; i < processor_num; ++i) {
         partial_nums[i].reserve(nums.size() / processor_num);
     }
 
-    for (size_t i = 0; i < nums.size(); ++i) {
+    for (int32_t i = 0; i < nums.size(); ++i) {
         partial_nums[i % processor_num].push_back(nums[i]);
     }
 
-    for (size_t i = 0; i < processor_num; ++i) {
+    for (int32_t i = 0; i < processor_num; ++i) {
         std::sort(partial_nums[i].begin(), partial_nums[i].end());
     }
 
@@ -28,7 +28,7 @@ void SimpleMergeSorter::sort(std::vector<int32_t>& nums, const size_t processor_
 
         const auto current_size = current_level.size();
 
-        size_t i = 0;
+        int32_t i = 0;
         std::vector<std::thread> threads;
         for (; i + 1 < current_size; i += 2) {
             threads.emplace_back([this, &m, &current_level, &next_level, i]() {
@@ -43,7 +43,7 @@ void SimpleMergeSorter::sort(std::vector<int32_t>& nums, const size_t processor_
                 next_level.emplace_back(std::move(merged));
             });
         }
-        for (size_t i = 0; i < threads.size(); ++i) {
+        for (int32_t i = 0; i < threads.size(); ++i) {
             threads[i].join();
         }
 
@@ -59,9 +59,9 @@ void SimpleMergeSorter::sort(std::vector<int32_t>& nums, const size_t processor_
 
 void SimpleMergeSorter::_merge(const std::vector<int32_t>& left, const std::vector<int32_t>& right,
                                std::vector<int32_t>& dest) {
-    size_t i = 0;
-    size_t j = 0;
-    size_t k = 0;
+    int32_t i = 0;
+    int32_t j = 0;
+    int32_t k = 0;
 
     while (i < left.size() && j < right.size()) {
         if (left[i] <= right[j]) {

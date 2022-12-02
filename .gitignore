@@ -1,4 +1,7 @@
 compile_commands.json
+.gdb_history
+
+core.*
 
 build
 .cache

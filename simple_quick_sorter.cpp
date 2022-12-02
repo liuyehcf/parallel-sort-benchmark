@@ -6,13 +6,13 @@
 #include <thread>
 
 struct Slice {
-    Slice(std::vector<int32_t>& nums, const size_t start, const size_t end) : nums(nums), start(start), end(end){};
+    Slice(std::vector<int32_t>& nums, const int32_t start, const int32_t end) : nums(nums), start(start), end(end){};
     std::vector<int32_t>& nums;
-    const size_t start;
-    const size_t end;
+    const int32_t start;
+    const int32_t end;
 };
 
-void SimpleQuickSorter::sort(std::vector<int32_t>& nums, const size_t processor_num) {
+void SimpleQuickSorter::sort(std::vector<int32_t>& nums, const int32_t processor_num) {
     std::vector<Slice> current_level;
     current_level.emplace_back(Slice(nums, 0, nums.size()));
     while (current_level.size() < processor_num) {
@@ -26,18 +26,18 @@ void SimpleQuickSorter::sort(std::vector<int32_t>& nums, const size_t processor_
         std::mutex m;
 
         std::vector<std::thread> threads;
-        size_t next_level_size = 0;
-        for (size_t i = 0; i < current_size; i++) {
+        int32_t next_level_size = 0;
+        for (int32_t i = 0; i < current_size; i++) {
             Slice& slice = current_level[i];
             threads.emplace_back([this, &m, &next_level, &slice]() {
-                size_t mid = _partition(slice.nums, slice.start, slice.end);
+                int32_t mid = _partition(slice.nums, slice.start, slice.end);
 
                 std::lock_guard<std::mutex> l(m);
                 next_level.emplace_back(Slice(slice.nums, slice.start, mid));
                 next_level.emplace_back(Slice(slice.nums, mid, slice.end));
             });
             next_level_size += 2;
-            const size_t current_remain_size = current_size - (i + 1);
+            const int32_t current_remain_size = current_size - (i + 1);
             if (next_level_size + current_remain_size >= processor_num) {
                 std::lock_guard<std::mutex> l(m);
                 for (; i + 1 < current_size; ++i) {
@@ -47,7 +47,7 @@ void SimpleQuickSorter::sort(std::vector<int32_t>& nums, const size_t processor_
             }
         }
 
-        for (size_t i = 0; i < threads.size(); ++i) {
+        for (int32_t i = 0; i < threads.size(); ++i) {
             threads[i].join();
         }
 
@@ -59,7 +59,7 @@ void SimpleQuickSorter::sort(std::vector<int32_t>& nums, const size_t processor_
     }
 
     std::vector<std::thread> threads;
-    for (size_t i = 0; i < current_level.size(); ++i) {
+    for (int32_t i = 0; i < current_level.size(); ++i) {
         threads.emplace_back([&current_level, i]() {
             Slice& slice = current_level[i];
             if (slice.start < slice.end) {
@@ -68,19 +68,19 @@ void SimpleQuickSorter::sort(std::vector<int32_t>& nums, const size_t processor_
         });
     }
 
-    for (size_t i = 0; i < threads.size(); ++i) {
+    for (int32_t i = 0; i < threads.size(); ++i) {
         threads[i].join();
     }
 }
 
-size_t SimpleQuickSorter::_partition(std::vector<int32_t>& nums, size_t start, size_t end) {
+int32_t SimpleQuickSorter::_partition(std::vector<int32_t>& nums, int32_t start, int32_t end) {
     if (start >= end) {
         return start;
     }
     const int32_t pivot = nums[end - 1];
-    size_t i = start - 1;
+    int32_t i = start - 1;
 
-    for (size_t j = start; j < end - 1; j++) {
+    for (int32_t j = start; j < end - 1; j++) {
         if (nums[j] < pivot) {
             _swap(nums, ++i, j);
         }
@@ -91,7 +91,7 @@ size_t SimpleQuickSorter::_partition(std::vector<int32_t>& nums, size_t start, s
     return i;
 }
 
-void SimpleQuickSorter::_swap(std::vector<int32_t>& nums, size_t i, size_t j) {
+void SimpleQuickSorter::_swap(std::vector<int32_t>& nums, int32_t i, int32_t j) {
     if (i == j) {
         return;
     }
