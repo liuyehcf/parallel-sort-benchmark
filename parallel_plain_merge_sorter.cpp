@@ -1,10 +1,10 @@
-#include "simple_merge_sorter.h"
+#include "parallel_plain_merge_sorter.h"
 
 #include <algorithm>
 #include <mutex>
 #include <thread>
 
-void SimpleMergeSorter::sort(std::vector<int32_t>& nums, const int32_t processor_num) {
+void ParallelPlainMergeSorter::sort(std::vector<int32_t>& nums, const int32_t processor_num) {
     std::vector<std::vector<int32_t>> partial_nums;
     partial_nums.resize(processor_num);
 
@@ -57,8 +57,8 @@ void SimpleMergeSorter::sort(std::vector<int32_t>& nums, const int32_t processor
     std::swap(nums, current_level[0]);
 }
 
-void SimpleMergeSorter::_merge(const std::vector<int32_t>& left, const std::vector<int32_t>& right,
-                               std::vector<int32_t>& dest) {
+void ParallelPlainMergeSorter::_merge(const std::vector<int32_t>& left, const std::vector<int32_t>& right,
+                                      std::vector<int32_t>& dest) {
     int32_t i = 0;
     int32_t j = 0;
     int32_t k = 0;

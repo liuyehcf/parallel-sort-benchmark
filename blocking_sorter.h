@@ -4,8 +4,8 @@
 
 #include <vector>
 
-class Sorter {
+class BlockingSorter {
 public:
     virtual void sort(std::vector<int32_t>& nums, const int32_t processor_num) = 0;
-    virtual ~Sorter() = default;
+    virtual ~BlockingSorter() = default;
 };

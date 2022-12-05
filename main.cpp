@@ -2,16 +2,17 @@
 #include <iostream>
 #include <random>
 
-#include "block_quick_sorter.h"
-#include "k_merger.h"
-#include "merge_path_sorter.h"
-#include "merger.h"
-#include "simple_merge_sorter.h"
-#include "simple_quick_sorter.h"
-#include "sorter.h"
+#include "blocking_sorter.h"
+#include "parallel_block_based_quick_sorter.h"
+#include "parallel_merge_path_sorter.h"
+#include "parallel_plain_merge_sorter.h"
+#include "parallel_plain_merger.h"
+#include "parallel_plain_quick_sorter.h"
+#include "serial_k_merger.h"
+#include "streaming_merger.h"
 #include "util.h"
 
-void check(Sorter* sorter) {
+void check(BlockingSorter* sorter) {
     static constexpr int32_t max = 100;
     static std::default_random_engine e;
     static std::uniform_int_distribution<int32_t> u(1, max);
@@ -34,9 +35,7 @@ void check(Sorter* sorter) {
             sorter->sort(nums, processor_num);
 
             for (int32_t i = 0; i < length; ++i) {
-                if (nums[i] != expected_nums[i]) {
-                    throw std::logic_error("wrong");
-                }
+                CHECK(nums[i] == expected_nums[i]);
             }
 
             std::cout << "length=" << length << ", processor_num=" << processor_num << std::endl;
@@ -44,6 +43,7 @@ void check(Sorter* sorter) {
     }
 }
 
+template <typename T>
 void check_stream_k_merger() {
     static std::default_random_engine e;
     static std::uniform_int_distribution<int32_t> u(1, 100);
@@ -65,9 +65,10 @@ void check_stream_k_merger() {
             std::sort(multi_nums[i].begin(), multi_nums[i].end());
         }
 
-        std::cout << "chunk_size=" << chunk_size << ", total_size=" << expected_nums.size() << std::endl;
+        std::cout << "chunk_size=" << chunk_size << ", total_size=" << expected_nums.size()
+                  << ", multi_nums_size=" << multi_nums.size() << std::endl;
 
-        KMerger merger(std::move(multi_nums), chunk_size);
+        T merger(std::move(multi_nums), chunk_size);
         std::vector<int32_t> merged_nums;
         while (!merger.eos()) {
             std::vector<int32_t> chunk = merger.pull();
@@ -78,34 +79,31 @@ void check_stream_k_merger() {
 
         std::sort(expected_nums.begin(), expected_nums.end());
 
-        if (merged_nums.size() != expected_nums.size()) {
-            throw std::logic_error("wrong");
-        }
+        CHECK(merged_nums.size() == expected_nums.size());
         for (int32_t i = 0; i < expected_nums.size(); ++i) {
-            if (merged_nums[i] != expected_nums[i]) {
-                throw std::logic_error("wrong");
-            }
+            CHECK(merged_nums[i] == expected_nums[i]);
         }
     }
 }
 
 int main() {
-    Sorter* simple_merge_sorter = new SimpleMergeSorter();
+    BlockingSorter* simple_merge_sorter = new ParallelPlainMergeSorter();
     check(simple_merge_sorter);
     delete simple_merge_sorter;
 
-    Sorter* merge_path_sorter = new MergePathSorter();
+    BlockingSorter* merge_path_sorter = new ParallelMergePathSorter();
     check(merge_path_sorter);
     delete merge_path_sorter;
 
-    Sorter* simple_quick_sorter = new SimpleQuickSorter();
+    BlockingSorter* simple_quick_sorter = new ParallelPlainQuickSorter();
     check(simple_quick_sorter);
     delete simple_quick_sorter;
 
-    Sorter* block_quick_sorter = new BlockBasedQuickSorter(false, 1024);
+    BlockingSorter* block_quick_sorter = new ParallelBlockBasedQuickSorter(false, 1024);
     check(block_quick_sorter);
     delete block_quick_sorter;
 
-    check_stream_k_merger();
+    check_stream_k_merger<SerialKMerger>();
+    check_stream_k_merger<ParallelPlainMerger>();
     return 0;
 }

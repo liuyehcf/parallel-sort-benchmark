@@ -1,4 +1,4 @@
-#include "block_quick_sorter.h"
+#include "parallel_block_based_quick_sorter.h"
 
 #include <algorithm>
 #include <atomic>
@@ -8,7 +8,7 @@
 
 #include "util.h"
 
-void BlockBasedQuickSorter::sort(std::vector<int32_t>& nums, const int32_t processor_num) {
+void ParallelBlockBasedQuickSorter::sort(std::vector<int32_t>& nums, const int32_t processor_num) {
     GroupPtr group = std::make_shared<Group>(nums, 0, nums.size(), processor_num, std::make_shared<std::mutex>(),
                                              std::make_shared<std::vector<std::thread>>(),
                                              std::make_shared<std::condition_variable>(), std::make_shared<int32_t>(0));
@@ -27,7 +27,7 @@ void BlockBasedQuickSorter::sort(std::vector<int32_t>& nums, const int32_t proce
     }
 }
 
-void BlockBasedQuickSorter::_process_group(GroupPtr group) {
+void ParallelBlockBasedQuickSorter::_process_group(GroupPtr group) {
     std::lock_guard<std::mutex> l(*group->mutex());
     (*group->running_tasks())++;
     group->threads()->emplace_back([this, group]() {
@@ -52,15 +52,13 @@ void BlockBasedQuickSorter::_process_group(GroupPtr group) {
     });
 }
 
-void BlockBasedQuickSorter::_init_group(Group* group) {
-    if (group->start() >= group->end()) {
-        throw std::logic_error(std::to_string(__LINE__));
-    }
+void ParallelBlockBasedQuickSorter::_init_group(Group* group) {
+    CHECK(group->start() < group->end());
 
     group->init(_block_size);
 }
 
-void BlockBasedQuickSorter::_parallel_partition(Group* group) {
+void ParallelBlockBasedQuickSorter::_parallel_partition(Group* group) {
     std::vector<std::thread> threads;
     for (int32_t i = 0; i < group->processor_num(); ++i) {
         threads.emplace_back([this, &group]() {
@@ -95,13 +93,13 @@ void BlockBasedQuickSorter::_parallel_partition(Group* group) {
     }
 }
 
-void BlockBasedQuickSorter::_serial_partition(Group* group) {
+void ParallelBlockBasedQuickSorter::_serial_partition(Group* group) {
     _serial_neutralize(group);
     _serial_swap(group);
     _serial_final_partition(group);
 }
 
-void BlockBasedQuickSorter::_serial_neutralize(Group* group) {
+void ParallelBlockBasedQuickSorter::_serial_neutralize(Group* group) {
     auto& blocks = group->blocks();
     auto& LN = group->LN();
     auto& RN = group->RN();
@@ -180,7 +178,7 @@ void BlockBasedQuickSorter::_serial_neutralize(Group* group) {
     }
 }
 
-void BlockBasedQuickSorter::_serial_swap(Group* group) {
+void ParallelBlockBasedQuickSorter::_serial_swap(Group* group) {
     auto& blocks = group->blocks();
     const auto& LN = group->LN();
     const auto& RN = group->RN();
@@ -206,9 +204,7 @@ void BlockBasedQuickSorter::_serial_swap(Group* group) {
         }
     }
     for (int i = 0; i < tie.size(); ++i) {
-        if (tie[i] == -100) {
-            throw std::logic_error(std::to_string(__LINE__));
-        }
+        CHECK(tie[i] != -100);
     }
 
     // left block index
@@ -245,9 +241,7 @@ void BlockBasedQuickSorter::_serial_swap(Group* group) {
                 while (lti < tie.size() && tie[lti] != Block::LEFT_NEUTRALIZED) {
                     lti++;
                 }
-                if (lti >= tie.size()) {
-                    throw std::logic_error(std::to_string(__LINE__));
-                }
+                CHECK(lti < tie.size());
                 swap(group->nums(), i, lti + (LN + 1));
                 tie[lti] = Block::NOT_NEUTRALIZED;
             }
@@ -282,9 +276,7 @@ void BlockBasedQuickSorter::_serial_swap(Group* group) {
                 while (rti >= 0 && tie[rti] != Block::RIGHT_NEUTRALIZED) {
                     rti--;
                 }
-                if (rti < 0) {
-                    throw std::logic_error(std::to_string(__LINE__));
-                }
+                CHECK(rti >= 0);
                 swap(group->nums(), i, rti + (LN + 1));
                 tie[rti] = Block::NOT_NEUTRALIZED;
             }
@@ -297,7 +289,7 @@ void BlockBasedQuickSorter::_serial_swap(Group* group) {
     }
 }
 
-void BlockBasedQuickSorter::_serial_final_partition(Group* group) {
+void ParallelBlockBasedQuickSorter::_serial_final_partition(Group* group) {
     auto& LN = group->LN();
     auto& RN = group->RN();
 
@@ -324,7 +316,7 @@ void BlockBasedQuickSorter::_serial_final_partition(Group* group) {
     }
 }
 
-void BlockBasedQuickSorter::_split_group(Group* group) {
+void ParallelBlockBasedQuickSorter::_split_group(Group* group) {
     // [start, pivot_idx] and (pivot_idx, end)
     int32_t left_size = group->pivot_idx() - group->start() + 1;
 
@@ -344,7 +336,7 @@ void BlockBasedQuickSorter::_split_group(Group* group) {
     _process_group(right_group);
 }
 
-void BlockBasedQuickSorter::_neutralize(Block* left, Block* right, int32_t pivot) {
+void ParallelBlockBasedQuickSorter::_neutralize(Block* left, Block* right, int32_t pivot) {
     while (!left->is_eos() && !right->is_eos()) {
         while (!left->is_eos() && left->cur_value() < pivot) {
             left->inc();
@@ -369,7 +361,7 @@ void BlockBasedQuickSorter::_neutralize(Block* left, Block* right, int32_t pivot
     }
 }
 
-void BlockBasedQuickSorter::_check_group(Group* group) {
+void ParallelBlockBasedQuickSorter::_check_group(Group* group) {
     if (!_check) {
         return;
     }
@@ -377,14 +369,14 @@ void BlockBasedQuickSorter::_check_group(Group* group) {
         std::cout << "block_size=" << _block_size << ", processor_num=" << group->processor_num()
                   << ", pivot_idx=" << group->pivot_idx() << ", pivot=" << group->pivot() << std::endl;
         print(group->nums(), group->start(), group->end());
-        throw std::logic_error(std::to_string(__LINE__));
+        CHECK(false);
     }
     for (int32_t i = group->start(); i <= group->pivot_idx(); i++) {
         if (group->nums()[i] > group->pivot()) {
             std::cout << "block_size=" << _block_size << ", processor_num=" << group->processor_num()
                       << ", pivot_idx=" << group->pivot_idx() << ", pivot=" << group->pivot() << std::endl;
             print(group->nums(), group->start(), group->end());
-            throw std::logic_error(std::to_string(__LINE__));
+            CHECK(false);
         }
     }
     for (int32_t i = group->pivot_idx() + 1; i < group->end(); i++) {
@@ -392,33 +384,29 @@ void BlockBasedQuickSorter::_check_group(Group* group) {
             std::cout << "block_size=" << _block_size << ", processor_num=" << group->processor_num()
                       << ", pivot_idx=" << group->pivot_idx() << ", pivot=" << group->pivot() << std::endl;
             print(group->nums(), group->start(), group->end());
-            throw std::logic_error(std::to_string(__LINE__));
+            CHECK(false);
         }
     }
 }
 
-int test_main() {
+int test_parallel_block_based_quick_sorter() {
     std::default_random_engine e(0);
     std::uniform_int_distribution<int32_t> u32(0, 100);
-    try {
-        for (int32_t len = 1; len < 1024; len++) {
-            for (int32_t block_size = 1; block_size < 64; block_size++) {
-                for (int32_t processor_num = 1; processor_num <= 16; processor_num++) {
-                    std::cout << "len=" << len << ", block_size=" << block_size << ", processor_num=" << processor_num
-                              << std::endl;
-                    BlockBasedQuickSorter sorter(true, block_size);
+    for (int32_t len = 1; len < 1024; len++) {
+        for (int32_t block_size = 1; block_size < 64; block_size++) {
+            for (int32_t processor_num = 1; processor_num <= 16; processor_num++) {
+                std::cout << "len=" << len << ", block_size=" << block_size << ", processor_num=" << processor_num
+                          << std::endl;
+                ParallelBlockBasedQuickSorter sorter(true, block_size);
 
-                    std::vector<int32_t> nums;
-                    for (int32_t i = 0; i < len; ++i) {
-                        nums.push_back(u32(e));
-                    }
-
-                    sorter.sort(nums, processor_num);
+                std::vector<int32_t> nums;
+                for (int32_t i = 0; i < len; ++i) {
+                    nums.push_back(u32(e));
                 }
+
+                sorter.sort(nums, processor_num);
             }
         }
-    } catch (std::logic_error e) {
-        std::cerr << "error: " << e.what() << std::endl;
     }
 
     return 0;

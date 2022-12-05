@@ -1,8 +1,8 @@
 #pragma once
 
-#include "sorter.h"
+#include "blocking_sorter.h"
 
-class SimpleMergeSorter : public Sorter {
+class ParallelPlainMergeSorter : public BlockingSorter {
 public:
     void sort(std::vector<int32_t>& nums, const int32_t processor_numums);
 

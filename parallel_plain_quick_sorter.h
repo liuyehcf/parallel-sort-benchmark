@@ -1,7 +1,7 @@
 #pragma once
-#include "sorter.h"
+#include "blocking_sorter.h"
 
-class SimpleQuickSorter : public Sorter {
+class ParallelPlainQuickSorter : public BlockingSorter {
 public:
     void sort(std::vector<int32_t>& nums, const int32_t processor_num);
 

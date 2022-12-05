@@ -3,9 +3,9 @@
 #include <utility>
 #include <vector>
 
-#include "sorter.h"
+#include "blocking_sorter.h"
 
-class MergePathSorter : public Sorter {
+class ParallelMergePathSorter : public BlockingSorter {
 public:
     void sort(std::vector<int32_t>& nums, const int32_t processor_num) override;
 

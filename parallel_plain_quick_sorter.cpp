@@ -1,9 +1,11 @@
-#include "simple_quick_sorter.h"
+#include "parallel_plain_quick_sorter.h"
 
 #include <algorithm>
 #include <mutex>
 #include <stdexcept>
 #include <thread>
+
+#include "util.h"
 
 struct Slice {
     Slice(std::vector<int32_t>& nums, const int32_t start, const int32_t end) : nums(nums), start(start), end(end){};
@@ -12,16 +14,14 @@ struct Slice {
     const int32_t end;
 };
 
-void SimpleQuickSorter::sort(std::vector<int32_t>& nums, const int32_t processor_num) {
+void ParallelPlainQuickSorter::sort(std::vector<int32_t>& nums, const int32_t processor_num) {
     std::vector<Slice> current_level;
     current_level.emplace_back(Slice(nums, 0, nums.size()));
     while (current_level.size() < processor_num) {
         std::vector<Slice> next_level;
         const auto current_size = current_level.size();
         const auto avg_processor_num = processor_num / current_size;
-        if (avg_processor_num < 1) {
-            throw std::logic_error("unexpected");
-        }
+        CHECK(avg_processor_num >= 1);
 
         std::mutex m;
 
@@ -54,9 +54,7 @@ void SimpleQuickSorter::sort(std::vector<int32_t>& nums, const int32_t processor
         std::swap(current_level, next_level);
     }
 
-    if (current_level.size() != processor_num) {
-        throw std::logic_error("unexpected");
-    }
+    CHECK(current_level.size() == processor_num);
 
     std::vector<std::thread> threads;
     for (int32_t i = 0; i < current_level.size(); ++i) {
@@ -73,7 +71,7 @@ void SimpleQuickSorter::sort(std::vector<int32_t>& nums, const int32_t processor
     }
 }
 
-int32_t SimpleQuickSorter::_partition(std::vector<int32_t>& nums, int32_t start, int32_t end) {
+int32_t ParallelPlainQuickSorter::_partition(std::vector<int32_t>& nums, int32_t start, int32_t end) {
     if (start >= end) {
         return start;
     }
@@ -91,7 +89,7 @@ int32_t SimpleQuickSorter::_partition(std::vector<int32_t>& nums, int32_t start,
     return i;
 }
 
-void SimpleQuickSorter::_swap(std::vector<int32_t>& nums, int32_t i, int32_t j) {
+void ParallelPlainQuickSorter::_swap(std::vector<int32_t>& nums, int32_t i, int32_t j) {
     if (i == j) {
         return;
     }

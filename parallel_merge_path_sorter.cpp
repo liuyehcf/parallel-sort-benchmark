@@ -1,11 +1,13 @@
-#include "merge_path_sorter.h"
+#include "parallel_merge_path_sorter.h"
 
 #include <algorithm>
 #include <exception>
 #include <mutex>
 #include <thread>
 
-void MergePathSorter::sort(std::vector<int32_t>& nums, const int32_t processor_num) {
+#include "util.h"
+
+void ParallelMergePathSorter::sort(std::vector<int32_t>& nums, const int32_t processor_num) {
     std::vector<std::vector<int32_t>> partial_nums;
     partial_nums.resize(processor_num);
 
@@ -29,9 +31,7 @@ void MergePathSorter::sort(std::vector<int32_t>& nums, const int32_t processor_n
 
         const auto current_size = current_level.size();
         const auto avg_processor_num = processor_num / (current_size / 2);
-        if (avg_processor_num < 1) {
-            throw std::logic_error("unexpected");
-        }
+        CHECK(avg_processor_num >= 1);
 
         int32_t i = 0;
         std::vector<std::thread> threads;
@@ -62,8 +62,8 @@ void MergePathSorter::sort(std::vector<int32_t>& nums, const int32_t processor_n
     std::swap(nums, current_level[0]);
 }
 
-void MergePathSorter::_merge_path_merge(const std::vector<int32_t>& left, const std::vector<int32_t>& right,
-                                        std::vector<int32_t>& dest, const int32_t processor_num) {
+void ParallelMergePathSorter::_merge_path_merge(const std::vector<int32_t>& left, const std::vector<int32_t>& right,
+                                                std::vector<int32_t>& dest, const int32_t processor_num) {
     int32_t length = (left.size() + right.size()) / processor_num + 1;
     std::vector<std::thread> threads;
     for (int32_t i = 0; i <= processor_num; ++i) {
@@ -81,10 +81,10 @@ void MergePathSorter::_merge_path_merge(const std::vector<int32_t>& left, const 
     }
 }
 
-std::pair<int32_t, int32_t> MergePathSorter::_eval_diagnoal_intersection(const std::vector<int32_t>& left,
-                                                                         const std::vector<int32_t>& right,
-                                                                         const int32_t processor_idx,
-                                                                         const int32_t processor_num) {
+std::pair<int32_t, int32_t> ParallelMergePathSorter::_eval_diagnoal_intersection(const std::vector<int32_t>& left,
+                                                                                 const std::vector<int32_t>& right,
+                                                                                 const int32_t processor_idx,
+                                                                                 const int32_t processor_num) {
     int32_t diag = processor_idx * (left.size() + right.size()) / processor_num;
     if (diag > left.size() + right.size() - 1) {
         diag = left.size() + right.size() - 1;
@@ -127,11 +127,13 @@ std::pair<int32_t, int32_t> MergePathSorter::_eval_diagnoal_intersection(const s
         }
     }
 
-    throw std::logic_error("unexpected");
+    CHECK(false);
 }
 
-std::pair<bool, bool> MergePathSorter::_is_intersection(const std::vector<int32_t>& left, const int32_t left_idx,
-                                                        const std::vector<int32_t>& right, const int32_t right_idx) {
+std::pair<bool, bool> ParallelMergePathSorter::_is_intersection(const std::vector<int32_t>& left,
+                                                                const int32_t left_idx,
+                                                                const std::vector<int32_t>& right,
+                                                                const int32_t right_idx) {
     // M matrix is a matrix conprising of only boolean value
     // if A[i] > B[j], then M[i, j] = true
     // if A[i] <= B[j], then M[i, j] = false
@@ -178,10 +180,10 @@ std::pair<bool, bool> MergePathSorter::_is_intersection(const std::vector<int32_
     return std::make_pair(has_true && has_false, has_true);
 }
 
-void MergePathSorter::_do_merge_along_merge_path(const std::vector<int32_t>& left, const int32_t left_start,
-                                                 const std::vector<int32_t>& right, const int32_t right_start,
-                                                 std::vector<int32_t>& dest, const int32_t dest_start,
-                                                 const int32_t length) {
+void ParallelMergePathSorter::_do_merge_along_merge_path(const std::vector<int32_t>& left, const int32_t left_start,
+                                                         const std::vector<int32_t>& right, const int32_t right_start,
+                                                         std::vector<int32_t>& dest, const int32_t dest_start,
+                                                         const int32_t length) {
     int32_t i = left_start;
     int32_t j = right_start;
     int32_t k = dest_start;

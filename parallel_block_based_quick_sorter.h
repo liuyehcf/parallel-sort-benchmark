@@ -5,7 +5,7 @@
 #include <mutex>
 #include <thread>
 
-#include "sorter.h"
+#include "blocking_sorter.h"
 
 class Block {
 public:
@@ -144,9 +144,9 @@ private:
     std::shared_ptr<int32_t> _running_tasks = nullptr;
 };
 
-class BlockBasedQuickSorter : public Sorter {
+class ParallelBlockBasedQuickSorter : public BlockingSorter {
 public:
-    BlockBasedQuickSorter(bool check, int32_t block_size) : _check(check), _block_size(block_size) {}
+    ParallelBlockBasedQuickSorter(bool check, int32_t block_size) : _check(check), _block_size(block_size) {}
     void sort(std::vector<int32_t>& nums, const int32_t processor_num) override;
 
 private:
