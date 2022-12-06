@@ -7,5 +7,4 @@ public:
 
 private:
     int32_t _partition(std::vector<int32_t>& nums, int32_t start, int32_t end);
-    void _swap(std::vector<int32_t>& nums, int32_t i, int32_t j);
 };

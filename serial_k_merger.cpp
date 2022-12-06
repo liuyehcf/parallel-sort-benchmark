@@ -46,13 +46,13 @@ void SerialKMerger::_get_next(int32_t* val) {
     }
 }
 
-int test_k_merger() {
+int test_serial_k_merger() {
     std::vector<int32_t> v1{1, 2, 3, 4, 5};
     std::vector<int32_t> v2{1, 2, 3, 4, 5};
     std::vector<int32_t> v3{1, 2, 3, 4, 5};
 
     std::vector<std::vector<int32_t>> multi_nums{v1, v2, v3};
-    SerialKMerger merger(std::move(multi_nums), 1);
+    SerialKMerger merger(multi_nums, -1, 1, -1);
 
     while (!merger.eos()) {
         auto&& nums = merger.pull();

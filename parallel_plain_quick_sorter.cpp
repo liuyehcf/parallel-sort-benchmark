@@ -80,20 +80,11 @@ int32_t ParallelPlainQuickSorter::_partition(std::vector<int32_t>& nums, int32_t
 
     for (int32_t j = start; j < end - 1; j++) {
         if (nums[j] < pivot) {
-            _swap(nums, ++i, j);
+            swap(nums, ++i, j);
         }
     }
 
-    _swap(nums, ++i, end - 1);
+    swap(nums, ++i, end - 1);
 
     return i;
-}
-
-void ParallelPlainQuickSorter::_swap(std::vector<int32_t>& nums, int32_t i, int32_t j) {
-    if (i == j) {
-        return;
-    }
-    int32_t tmp = nums[i];
-    nums[i] = nums[j];
-    nums[j] = tmp;
 }

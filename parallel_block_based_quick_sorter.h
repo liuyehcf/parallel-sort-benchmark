@@ -147,7 +147,7 @@ private:
 class ParallelBlockBasedQuickSorter : public BlockingSorter {
 public:
     ParallelBlockBasedQuickSorter(bool check, int32_t block_size) : _check(check), _block_size(block_size) {}
-    void sort(std::vector<int32_t>& nums, const int32_t processor_num) override;
+    virtual void sort(std::vector<int32_t>& nums, const int32_t processor_num) override;
 
 private:
     void _process_group(GroupPtr group);

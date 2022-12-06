@@ -6,13 +6,16 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Wall -Wno-sign-compare -g")
 
 set(EXEC_FILES 
-    ./main.cpp 
+    ./merge_path.cpp
     ./parallel_plain_merge_sorter.cpp 
     ./parallel_plain_quick_sorter.cpp 
     ./parallel_block_based_quick_sorter.cpp 
     ./parallel_merge_path_sorter.cpp
+    ./streaming_merger.cpp
     ./serial_k_merger.cpp
-    ./parallel_plain_merger.cpp)
+    ./parallel_plain_merger.cpp
+    ./parallel_merge_path_merger.cpp
+    ./main.cpp)
 
 add_executable(sort_benchmark ${EXEC_FILES})
 

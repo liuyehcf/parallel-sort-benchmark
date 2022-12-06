@@ -4,128 +4,30 @@
 
 #include "util.h"
 
-void Node::fetch_from_buffer(std::vector<int32_t>& output) {
-    std::lock_guard<std::mutex> l(_m);
-    CHECK(!_buffers.empty());
-    output.swap(_buffers.front());
-    _buffers.pop();
-    _full_cv.notify_one();
-}
-
-void InternalNode::process() {
-    std::vector<int32_t> left_input;
-    std::vector<int32_t> right_input;
-    bool left_need_input = true;
-    bool right_need_input = true;
-    int32_t li = 0;
-    int32_t ri = 0;
-    while (!_left->eos() || !_right->eos() || !_left->is_buffer_empty() || !_right->is_buffer_empty()) {
-        if (left_need_input) {
-            while (!_left->eos() && _left->is_buffer_empty()) {
-                std::unique_lock<std::mutex> l(_left->_m);
-                if (!_left->eos() && _left->is_buffer_empty()) {
-                    _left->_empty_cv.wait(l);
-                }
-            }
-            if (!_left->is_buffer_empty()) {
-                _left->fetch_from_buffer(left_input);
-                li = 0;
-            }
-            left_need_input = false;
+void ParallelPlainMergeInternalNode::_process(const std::vector<int32_t>& left, int32_t& li, bool& l_need_more,
+                                              const std::vector<int32_t>& right, int32_t& ri, bool& r_need_more) {
+    std::unique_lock<std::mutex> l(_m);
+    while (li < left.size() && ri < right.size()) {
+        if (left[li] <= right[ri]) {
+            _buffer.push_back(left[li]);
+            li++;
+        } else {
+            _buffer.push_back(right[ri]);
+            ri++;
         }
-        if (right_need_input) {
-            while (!_right->eos() && _right->is_buffer_empty()) {
-                std::unique_lock<std::mutex> l(_right->_m);
-                if (!_right->eos() && _right->is_buffer_empty()) {
-                    _right->_empty_cv.wait(l);
-                }
-            }
-            if (!_right->is_buffer_empty()) {
-                _right->fetch_from_buffer(right_input);
-                ri = 0;
-            }
-            right_need_input = false;
-        }
-
-        {
-            std::unique_lock<std::mutex> l(_m);
-            while (li < left_input.size() && ri < right_input.size()) {
-                if (left_input[li] <= right_input[ri]) {
-                    _buffer.push_back(left_input[li]);
-                    li++;
-                } else {
-                    _buffer.push_back(right_input[ri]);
-                    ri++;
-                }
-                _buffer_enqueue(l, false);
-            }
-
-            while (_right->eos() && _right->is_buffer_empty() && li < left_input.size()) {
-                _buffer.push_back(left_input[li]);
-                li++;
-                _buffer_enqueue(l, false);
-            }
-
-            while (_left->eos() && _left->is_buffer_empty() && ri < right_input.size()) {
-                _buffer.push_back(right_input[ri]);
-                ri++;
-                _buffer_enqueue(l, false);
-            }
-        }
-
-        if (li >= left_input.size()) {
-            left_need_input = true;
-        }
-
-        if (ri >= right_input.size()) {
-            right_need_input = true;
-        }
+        enqueue_buffer(l, false);
     }
 
-    {
-        std::unique_lock<std::mutex> l(_m);
-        _buffer_enqueue(l, true);
+    while (_r_child->eos() && li < left.size()) {
+        _buffer.push_back(left[li]);
+        li++;
+        enqueue_buffer(l, false);
     }
-    _eos = true;
-}
 
-void Node::_buffer_enqueue(std::unique_lock<std::mutex>& l, bool force) {
-    if (!force && _buffer.size() < _chunk_size) {
-        return;
-    }
-    if (!_buffer.empty()) {
-        if (_buffers.size() >= _max_buffer_size) {
-            _full_cv.wait(l);
-        }
-        CHECK(_buffers.size() < _max_buffer_size);
-        _buffers.push(std::move(_buffer));
-        _buffer.clear();
-        _buffer.reserve(_chunk_size);
-    }
-    _empty_cv.notify_one();
-}
-
-void LeafNode::process() {
-    int32_t i = 0;
-    while (i < _nums.size()) {
-        std::unique_lock<std::mutex> l(_m);
-        int32_t buffer_remain_size = _max_buffer_size - _buffer.size();
-        int32_t nums_remain_size = _nums.size() - i;
-        int32_t step = std::min(buffer_remain_size, nums_remain_size);
-        _buffer.insert(_buffer.end(), _nums.begin() + i, _nums.begin() + i + step);
-        i += step;
-        _buffer_enqueue(l, false);
-    }
-    {
-        std::unique_lock<std::mutex> l(_m);
-        _buffer_enqueue(l, true);
-    }
-    _eos = true;
-}
-
-ParallelPlainMerger::~ParallelPlainMerger() {
-    for (int32_t i = 0; i < _threads.size(); ++i) {
-        _threads[i].join();
+    while (_l_child->eos() && ri < right.size()) {
+        _buffer.push_back(right[ri]);
+        ri++;
+        enqueue_buffer(l, false);
     }
 }
 
@@ -134,7 +36,7 @@ std::vector<int32_t> ParallelPlainMerger::pull() {
     if (!_root->is_buffer_empty()) {
         _root->fetch_from_buffer(out);
     }
-    if (_root->eos() && _root->is_buffer_empty()) {
+    if (_root->eos()) {
         _eos = true;
     }
     return out;
@@ -156,7 +58,7 @@ void ParallelPlainMerger::_init() {
             const auto& left = current_level[i];
             const auto& right = current_level[i + 1];
 
-            NodePtr node = std::make_shared<InternalNode>(_chunk_size, _max_buffer_size, left, right);
+            NodePtr node = std::make_shared<ParallelPlainMergeInternalNode>(_chunk_size, _max_buffer_size, left, right);
             _start(node);
             next_level.emplace_back(node);
         }
@@ -175,12 +77,12 @@ void ParallelPlainMerger::_start(const NodePtr& node) {
     _threads.emplace_back([node]() { node->process(); });
 }
 
-int test_simple_merge_merger() {
+int test_parallel_plain_merger() {
     std::vector<int32_t> v1{17, 24, 28, 28, 36, 44, 48, 49, 77, 90};
     std::vector<int32_t> v2{7, 10, 27, 32, 50, 51, 52, 91, 95, 99};
 
     std::vector<std::vector<int32_t>> multi_nums{v1, v2};
-    ParallelPlainMerger merger(std::move(multi_nums), 3, 1);
+    ParallelPlainMerger merger(multi_nums, -1, 3, 1);
 
     while (!merger.eos()) {
         auto&& nums = merger.pull();
