@@ -66,17 +66,19 @@ void InternalNode::process() {
 
         _process(left, li, l_need_more, right, ri, r_need_more);
 
-        // TODO memory will rise up in case of merge path
-        if (li >= left.size()) {
-            left.clear();
+        if (li >= _chunk_size) {
+            std::vector<int32_t> new_left;
+            new_left.resize(left.size() - li);
+            std::copy(left.begin() + li, left.end(), new_left.begin());
+            left.swap(new_left);
             li = 0;
-            l_need_more = true;
         }
-
-        if (ri >= right.size()) {
-            right.clear();
+        if (ri >= _chunk_size) {
+            std::vector<int32_t> new_right;
+            new_right.resize(right.size() - ri);
+            std::copy(right.begin() + ri, right.end(), new_right.begin());
+            right.swap(new_right);
             ri = 0;
-            r_need_more = true;
         }
     }
 

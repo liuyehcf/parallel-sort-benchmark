@@ -1,8 +1,9 @@
 #pragma once
 
-#include "blocking_sorter.h"
+#include "parallel_merge_sorter.h"
 
-class ParallelMergePathSorter : public BlockingSorter {
-public:
-    virtual void sort(std::vector<int32_t>& nums, const int32_t processor_num) override;
+class ParallelMergePathSorter : public ParallelMergeSorter {
+protected:
+    virtual void _merge(const std::vector<int32_t>& left, const std::vector<int32_t>& right, std::vector<int32_t>& dest,
+                        const int32_t processor_num) override;
 };

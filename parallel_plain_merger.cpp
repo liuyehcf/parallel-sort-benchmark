@@ -29,6 +29,13 @@ void ParallelPlainMergeInternalNode::_process(const std::vector<int32_t>& left, 
         ri++;
         enqueue_buffer(l, false);
     }
+
+    if (!_l_child->eos() && left.size() - li < _chunk_size) {
+        l_need_more = true;
+    }
+    if (!_r_child->eos() && right.size() - ri < _chunk_size) {
+        r_need_more = true;
+    }
 }
 
 std::vector<int32_t> ParallelPlainMerger::pull() {
