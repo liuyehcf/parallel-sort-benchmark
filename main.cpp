@@ -11,6 +11,7 @@
 #include "parallel_plain_merger.h"
 #include "parallel_plain_quick_sorter.h"
 #include "serial_k_merger.h"
+#include "serial_merge_sorter.h"
 #include "streaming_merger.h"
 #include "util.h"
 
@@ -164,6 +165,10 @@ void check_stream_merger() {
 
 int main() {
     check_merge_path();
+
+    SerialMergeSorter* serial_merge_sorter = new SerialMergeSorter();
+    check_blocking_sorter(serial_merge_sorter);
+    delete serial_merge_sorter;
 
     BlockingSorter* simple_merge_sorter = new ParallelPlainMergeSorter();
     check_blocking_sorter(simple_merge_sorter);

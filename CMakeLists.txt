@@ -7,6 +7,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -Wall -Wno-sign-compare -g")
 
 set(EXEC_FILES 
     ./merge_path.cpp
+    ./serial_merge_sorter.cpp
     ./parallel_plain_merge_sorter.cpp 
     ./parallel_plain_quick_sorter.cpp 
     ./parallel_block_based_quick_sorter.cpp 

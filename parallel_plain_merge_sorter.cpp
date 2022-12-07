@@ -16,8 +16,12 @@ void ParallelPlainMergeSorter::sort(std::vector<int32_t>& nums, const int32_t pr
         partial_nums[i % processor_num].push_back(nums[i]);
     }
 
+    std::vector<std::thread> sort_threads;
     for (int32_t i = 0; i < processor_num; ++i) {
-        std::sort(partial_nums[i].begin(), partial_nums[i].end());
+        sort_threads.emplace_back([&partial_nums, i]() { std::sort(partial_nums[i].begin(), partial_nums[i].end()); });
+    }
+    for (int32_t i = 0; i < sort_threads.size(); i++) {
+        sort_threads[i].join();
     }
 
     std::mutex m;
@@ -29,22 +33,22 @@ void ParallelPlainMergeSorter::sort(std::vector<int32_t>& nums, const int32_t pr
         const auto current_size = current_level.size();
 
         int32_t i = 0;
-        std::vector<std::thread> threads;
+        std::vector<std::thread> merge_threads;
         for (; i + 1 < current_size; i += 2) {
-            threads.emplace_back([this, &m, &current_level, &next_level, i]() {
+            merge_threads.emplace_back([&m, &current_level, &next_level, i]() {
                 auto& left = current_level[i];
                 auto& right = current_level[i + 1];
                 std::vector<int32_t> merged;
                 merged.resize(left.size() + right.size());
 
-                _merge(left, right, merged);
+                std::merge(left.begin(), left.end(), right.begin(), right.end(), merged.begin());
 
                 std::lock_guard<std::mutex> l(m);
                 next_level.emplace_back(std::move(merged));
             });
         }
-        for (int32_t i = 0; i < threads.size(); ++i) {
-            threads[i].join();
+        for (int32_t i = 0; i < merge_threads.size(); ++i) {
+            merge_threads[i].join();
         }
 
         if (i < current_size) {
@@ -55,35 +59,4 @@ void ParallelPlainMergeSorter::sort(std::vector<int32_t>& nums, const int32_t pr
     }
 
     std::swap(nums, current_level[0]);
-}
-
-void ParallelPlainMergeSorter::_merge(const std::vector<int32_t>& left, const std::vector<int32_t>& right,
-                                      std::vector<int32_t>& dest) {
-    int32_t i = 0;
-    int32_t j = 0;
-    int32_t k = 0;
-
-    while (i < left.size() && j < right.size()) {
-        if (left[i] <= right[j]) {
-            dest[k] = left[i];
-            k++;
-            i++;
-        } else {
-            dest[k] = right[j];
-            k++;
-            j++;
-        }
-    }
-
-    while (i < left.size()) {
-        dest[k] = left[i];
-        k++;
-        i++;
-    }
-
-    while (j < right.size()) {
-        dest[k] = right[j];
-        k++;
-        j++;
-    }
 }
