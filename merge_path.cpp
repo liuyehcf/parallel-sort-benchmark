@@ -5,32 +5,47 @@
 
 #include "util.h"
 
-void MergePath::merge(const int32_t* left, const int32_t l_size, int32_t* const l_step_ptr, const int32_t* right,
-                      const int32_t r_size, int32_t* const r_step_ptr, int32_t* const dest, const int32_t d_size,
+void MergePath::merge(const int32_t* left, const int32_t l_size, int32_t* const l_step, const int32_t* right,
+                      const int32_t r_size, int32_t* const r_step, int32_t* const dest, const int32_t d_size,
                       const int32_t processor_num) {
+    CHECK(l_size >= 0);
+    CHECK(r_size >= 0);
     CHECK(processor_num > 0);
-    int32_t length = (l_size + r_size) / processor_num + 1;
-    std::vector<std::thread> threads;
-    std::atomic<int32_t> l_step(0);
-    std::atomic<int32_t> r_step(0);
 
-    for (int32_t i = 0; i <= processor_num; ++i) {
-        threads.emplace_back([left, l_size, &l_step, right, r_size, &r_step, dest, d_size, length, i, processor_num]() {
+    if (d_size <= 0) {
+        if (l_step != nullptr) {
+            *l_step = 0;
+        }
+        if (r_step != nullptr) {
+            *r_step = 0;
+        }
+        return;
+    }
+
+    const int32_t length = (l_size + r_size) / processor_num + 1;
+    std::vector<std::thread> threads;
+
+    std::atomic<int32_t> l_step_atomic(0);
+    std::atomic<int32_t> r_step_atomic(0);
+
+    for (int32_t i = 0; i < processor_num; ++i) {
+        threads.emplace_back([left, l_size, &l_step_atomic, right, r_size, &r_step_atomic, dest, d_size, length, i,
+                              processor_num]() {
             auto pair = _eval_diagnoal_intersection(left, l_size, right, r_size, d_size, i, processor_num);
             int32_t li = pair.first;
             int32_t ri = pair.second;
             int32_t di = i * (d_size) / processor_num;
             _do_merge_along_merge_path(left, l_size, li, right, r_size, ri, dest, d_size, di, length);
 
-            int32_t l_old = l_step;
+            int32_t l_old = l_step_atomic;
             while (li > l_old) {
-                if (l_step.compare_exchange_strong(l_old, li)) {
+                if (l_step_atomic.compare_exchange_strong(l_old, li)) {
                     break;
                 }
             }
-            int32_t r_old = r_step;
+            int32_t r_old = r_step_atomic;
             while (ri > r_old) {
-                if (r_step.compare_exchange_strong(r_old, ri)) {
+                if (r_step_atomic.compare_exchange_strong(r_old, ri)) {
                     break;
                 }
             }
@@ -40,11 +55,12 @@ void MergePath::merge(const int32_t* left, const int32_t l_size, int32_t* const 
     for (int32_t i = 0; i < threads.size(); ++i) {
         threads[i].join();
     }
-    if (l_step_ptr != nullptr) {
-        *l_step_ptr = l_step;
+
+    if (l_step != nullptr) {
+        *l_step = l_step_atomic;
     }
-    if (r_step_ptr != nullptr) {
-        *r_step_ptr = r_step;
+    if (r_step != nullptr) {
+        *r_step = r_step_atomic;
     }
 }
 

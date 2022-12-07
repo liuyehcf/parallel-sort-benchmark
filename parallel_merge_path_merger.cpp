@@ -29,23 +29,19 @@ void ParallelMergePathInternalNode::_process(const std::vector<int32_t>& left, i
     }
 
     std::vector<int32_t> merged;
-    if (l_size == 0) {
-        merged.insert(merged.end(), right.begin() + ri, right.begin() + ri + r_size);
-        ri += r_size;
-    } else if (r_size == 0) {
-        merged.insert(merged.end(), left.begin() + li, left.begin() + li + l_size);
-        li += l_size;
+    if (l_size == 0 || r_size == 0) {
+        merged.resize(l_size + r_size);
     } else {
         merged.resize(std::min(l_size, r_size));
-        int32_t l_step;
-        int32_t r_step;
-        MergePath::merge(&left.data()[li], l_size, &l_step, &right.data()[ri], r_size, &r_step, merged.data(),
-                         merged.size(), _processor_num);
-
-        CHECK(l_step + r_step == merged.size());
-        li += l_step;
-        ri += r_step;
     }
+    int32_t l_step;
+    int32_t r_step;
+    MergePath::merge(&left.data()[li], l_size, &l_step, &right.data()[ri], r_size, &r_step, merged.data(),
+                     merged.size(), _processor_num);
+
+    CHECK(l_step + r_step == merged.size());
+    li += l_step;
+    ri += r_step;
 
     int32_t i = 0;
     while (i < merged.size()) {

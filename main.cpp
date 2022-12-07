@@ -42,21 +42,33 @@ void check_merge_path() {
         std::sort(right.begin(), right.end());
         std::sort(expected_nums.begin(), expected_nums.end());
 
-        for (int32_t l_len = 1; l_len <= left.size(); l_len++) {
-            for (int32_t r_len = 1; r_len <= right.size(); r_len++) {
+        for (int32_t l_len = 0; l_len <= left.size(); l_len++) {
+            for (int32_t r_len = 0; r_len <= right.size(); r_len++) {
+                if (l_len == 0 || r_len == 0) {
+                    continue;
+                }
                 std::cout << "cnt=" << cnt << ", l_len=" << l_len << ", r_len=" << r_len << std::endl;
-                const int32_t d_len = l_len + r_len;
                 std::vector<int32_t> dest;
-                dest.resize(d_len);
+                dest.resize(l_len + r_len);
                 int32_t l_step;
                 int32_t r_step;
-                MergePath::merge(left.data(), l_len, &l_step, right.data(), r_len, &r_step, dest.data(), d_len,
+                MergePath::merge(left.data(), l_len, &l_step, right.data(), r_len, &r_step, dest.data(), dest.size(),
                                  PROCESSOR_NUM_U(E));
-                CHECK(l_step + r_step == d_len);
+                CHECK(l_step + r_step == dest.size());
                 for (int32_t i = 0; i < std::min(l_len, r_len); i++) {
                     CHECK(dest[i] == expected_nums[i]);
                 }
             }
+        }
+        std::vector<int32_t> dest;
+        dest.resize(left.size() + right.size());
+        int32_t l_step;
+        int32_t r_step;
+        MergePath::merge(left.data(), left.size(), &l_step, right.data(), right.size(), &r_step, dest.data(),
+                         dest.size(), PROCESSOR_NUM_U(E));
+        CHECK(left.size() + right.size() == dest.size());
+        for (int32_t i = 0; i < dest.size(); i++) {
+            CHECK(dest[i] == expected_nums[i]);
         }
     }
 }
