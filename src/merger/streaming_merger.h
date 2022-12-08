@@ -66,6 +66,7 @@ private:
 
 class StreamMerger {
 public:
+    static inline std::string name = "StreamMerger";
     StreamMerger(const std::vector<std::vector<int32_t>>& multi_nums, const int32_t processor_num,
                  const int32_t chunk_size, const int32_t max_buffer_size)
             : _multi_nums(multi_nums),

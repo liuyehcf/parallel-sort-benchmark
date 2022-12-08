@@ -8,6 +8,8 @@
 
 #include "util.h"
 
+int32_t ParallelBlockBasedQuickSorter::DEFAULT_BLOCK_SIZE = 1024;
+
 void ParallelBlockBasedQuickSorter::sort(std::vector<int32_t>& nums, const int32_t processor_num) {
     GroupPtr group = std::make_shared<Group>(nums, 0, nums.size(), processor_num, std::make_shared<std::mutex>(),
                                              std::make_shared<std::vector<std::thread>>(),

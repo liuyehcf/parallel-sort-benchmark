@@ -3,6 +3,7 @@
 
 class ParallelPlainQuickSorter : public BlockingSorter {
 public:
+    static inline std::string name = "ParallelPlainQuickSorter";
     void sort(std::vector<int32_t>& nums, const int32_t processor_num);
 
 private:

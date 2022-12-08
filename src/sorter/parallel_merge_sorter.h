@@ -4,6 +4,7 @@
 
 class ParallelMergeSorter : public BlockingSorter {
 public:
+    static inline std::string name = "ParallelMergeSorter";
     virtual void sort(std::vector<int32_t>& nums, const int32_t processor_num) final override;
 
 protected:

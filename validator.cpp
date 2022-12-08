@@ -1,3 +1,5 @@
+#include "validator.h"
+
 #include <algorithm>
 #include <iostream>
 #include <random>
@@ -15,7 +17,7 @@
 #include "streaming_merger.h"
 #include "util.h"
 
-void check_merge_path() {
+void validate_merge_path() {
     static std::default_random_engine E;
     static std::uniform_int_distribution<int32_t> VALUE_U(1, 100);
     static std::uniform_int_distribution<int32_t> LENGTH_U(1, 100);
@@ -74,7 +76,8 @@ void check_merge_path() {
     }
 }
 
-void check_blocking_sorter(BlockingSorter* sorter) {
+template <typename T>
+void validate_blocking_sorter() {
     static std::default_random_engine E;
     static std::uniform_int_distribution<int32_t> VALUE_U(1, 100);
     static std::vector<int32_t> lengths = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 1048576};
@@ -91,7 +94,8 @@ void check_blocking_sorter(BlockingSorter* sorter) {
             }
 
             std::sort(expected_nums.begin(), expected_nums.end());
-            sorter->sort(nums, processor_num);
+            T sorter;
+            sorter.sort(nums, processor_num);
 
             for (int32_t i = 0; i < length; ++i) {
                 CHECK(nums[i] == expected_nums[i]);
@@ -103,7 +107,7 @@ void check_blocking_sorter(BlockingSorter* sorter) {
 }
 
 template <typename T, bool test_processor_num, bool test_max_buffer_size>
-void check_stream_merger() {
+void validate_stream_merger() {
     static std::default_random_engine E;
     static std::uniform_int_distribution<int32_t> VALUE_U(1, 1024);
     static std::uniform_int_distribution<int32_t> NUMS_SIZE_U(1, 1024);
@@ -163,31 +167,16 @@ void check_stream_merger() {
     }
 }
 
-int main() {
-    check_merge_path();
+void validate() {
+    validate_merge_path();
 
-    SerialMergeSorter* serial_merge_sorter = new SerialMergeSorter();
-    check_blocking_sorter(serial_merge_sorter);
-    delete serial_merge_sorter;
+    validate_blocking_sorter<SerialMergeSorter>();
+    validate_blocking_sorter<ParallelPlainMergeSorter>();
+    validate_blocking_sorter<ParallelMergePathSorter>();
+    validate_blocking_sorter<ParallelPlainQuickSorter>();
+    validate_blocking_sorter<ParallelBlockBasedQuickSorter>();
 
-    BlockingSorter* simple_merge_sorter = new ParallelPlainMergeSorter();
-    check_blocking_sorter(simple_merge_sorter);
-    delete simple_merge_sorter;
-
-    BlockingSorter* merge_path_sorter = new ParallelMergePathSorter();
-    check_blocking_sorter(merge_path_sorter);
-    delete merge_path_sorter;
-
-    BlockingSorter* simple_quick_sorter = new ParallelPlainQuickSorter();
-    check_blocking_sorter(simple_quick_sorter);
-    delete simple_quick_sorter;
-
-    BlockingSorter* block_quick_sorter = new ParallelBlockBasedQuickSorter(false, 1024);
-    check_blocking_sorter(block_quick_sorter);
-    delete block_quick_sorter;
-
-    check_stream_merger<SerialKMerger, false, false>();
-    check_stream_merger<ParallelPlainMerger, false, true>();
-    check_stream_merger<ParallelMergePathMerger, true, true>();
-    return 0;
+    validate_stream_merger<SerialKMerger, false, false>();
+    validate_stream_merger<ParallelPlainMerger, false, true>();
+    validate_stream_merger<ParallelMergePathMerger, true, true>();
 }
