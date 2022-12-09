@@ -20,20 +20,20 @@
 #include "util.h"
 #include "validator.h"
 
-DEFINE_bool(validate, false, "validate");
 DEFINE_int32(mode, -1, "benchmark_mode, 1: parallel_plain_quick_sorter");
 DEFINE_int32(data_size, 10000, "data_size");
-DEFINE_int32(data_distribution, 10000, "data_distribution, 1 for uniform; 2 for normal; 3 for skew");
+DEFINE_int32(data_distribution, 1, "data_distribution, 1 for uniform; 2 for normal; 3 for skew");
 DEFINE_int32(skew_percent, 95, "percentage of skew");
 DEFINE_int32(min_dop, 1, "minimum degree of parallelism");
 DEFINE_int32(max_dop, 1, "minimum degree of parallelism");
 DEFINE_int32(block_size, 1024, "block size for block based quick sort");
-DEFINE_int32(chunk_size, 4096 * 32, "chunk size of streaming merger");
+DEFINE_int32(chunk_size, 4096, "chunk size of streaming merger");
 DEFINE_int32(max_buffer_size, 256, "max buffer size of streaming merger");
 DEFINE_int32(iteration, 3, "iteration times for each benchmark");
 DEFINE_bool(verbose, false, "verbose");
 
 enum Mode {
+    valid = 0,
     serial_merge_sorter = 1,
     parallel_plain_merge_sorter = 2,
     parallel_plain_quick_sorter = 3,
@@ -75,12 +75,10 @@ int main(int32_t argc, char* argv[]) {
 
     check_flags();
 
-    if (FLAGS_validate) {
-        validate();
-        return 0;
-    }
-
     switch (FLAGS_mode) {
+    case Mode::valid:
+        validate();
+        break;
     case serial_merge_sorter:
         benchmark_sorter<SerialMergeSorter>();
         break;
@@ -112,9 +110,8 @@ int main(int32_t argc, char* argv[]) {
 }
 
 void check_flags() {
-    if (FLAGS_mode < Mode::serial_merge_sorter || FLAGS_mode > Mode::parallel_merge_path_merger) {
-        std::cout << "mode must between " << Mode::serial_merge_sorter << " and " << Mode::parallel_merge_path_merger
-                  << std::endl;
+    if (FLAGS_mode < Mode::valid || FLAGS_mode > Mode::parallel_merge_path_merger) {
+        std::cout << "mode must between " << Mode::valid << " and " << Mode::parallel_merge_path_merger << std::endl;
         exit(1);
     }
     if (FLAGS_data_size <= 0) {
@@ -250,9 +247,14 @@ void benchmark_merger() {
         const int32_t avg_data_size = FLAGS_data_size / dop;
         std::vector<std::thread> init_threads;
         for (int i = 0; i < dop; ++i) {
-            init_threads.emplace_back([&multi_nums, i, avg_data_size]() {
-                multi_nums[i].resize(avg_data_size);
-                init_nums(multi_nums[i], avg_data_size);
+            init_threads.emplace_back([&multi_nums, i, dop, avg_data_size]() {
+                int32_t size = avg_data_size;
+                if (i == dop - 1) {
+                    size = FLAGS_data_size - i * avg_data_size;
+                }
+                CHECK(std::abs(avg_data_size - size) <= dop);
+                multi_nums[i].resize(size);
+                init_nums(multi_nums[i], size);
                 std::sort(multi_nums[i].begin(), multi_nums[i].end());
             });
         }
@@ -272,6 +274,7 @@ void benchmark_merger() {
                         merged_nums.insert(merged_nums.end(), chunk.begin(), chunk.end());
                     }
                 }
+                CHECK(merged_nums.size() == FLAGS_data_size);
             }
             if (time < min_time) {
                 min_time = time;

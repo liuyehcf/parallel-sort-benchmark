@@ -11,21 +11,25 @@ void ParallelMergePathInternalNode::_process(const std::vector<int32_t>& left, i
     const bool r_lt_chunk_size = ((right.size() - ri) < _chunk_size);
     int32_t l_size;
     int32_t r_size;
-    if (l_lt_chunk_size || r_lt_chunk_size) {
-        if (l_has_more || r_has_more) {
-            if (l_has_more) {
-                l_need_more = true;
-            }
-            if (r_has_more) {
-                r_need_more = true;
-            }
-            return;
-        }
-        l_size = left.size() - li;
-        r_size = right.size() - ri;
+    if (l_lt_chunk_size && l_has_more && r_lt_chunk_size && r_has_more) {
+        l_need_more = true;
+        r_need_more = true;
+        return;
+    } else if (l_lt_chunk_size && l_has_more) {
+        l_need_more = true;
+        return;
+    } else if (r_lt_chunk_size && r_has_more) {
+        r_need_more = true;
+        return;
     } else {
         l_size = _chunk_size;
         r_size = _chunk_size;
+        if (l_lt_chunk_size) {
+            l_size = left.size() - li;
+        }
+        if (r_lt_chunk_size) {
+            r_size = right.size() - ri;
+        }
     }
 
     std::vector<int32_t> merged;
