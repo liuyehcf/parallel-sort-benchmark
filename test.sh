@@ -630,3 +630,32 @@ build/benchmark --mode=8 \
     --data_size=100000000 --data_distribution=3 \
     --iteration=10 \
     --chunk_size=1048576
+
+# multi stream with data skewed
+build/benchmark --mode=6 \
+    --min_dop=2 --max_dop=16 \
+    --data_size=100000000 --data_distribution=1 \
+    --iteration=10 \
+    --chunk_size=65536 \
+    --merge_skew=true \
+    --merge_skew_percent=80
+
+
+build/benchmark --mode=7 \
+    --min_dop=2 --max_dop=16 \
+    --data_size=100000000 --data_distribution=1 \
+    --iteration=10 \
+    --chunk_size=65536 \
+    --merge_skew=true \
+    --merge_skew_percent=80
+
+
+build/benchmark --mode=8 \
+    --min_dop=2 --max_dop=16 \
+    --data_size=100000000 --data_distribution=1 \
+    --iteration=10 \
+    --chunk_size=65536 \
+    --merge_skew=true \
+    --merge_skew_percent=80
+
+

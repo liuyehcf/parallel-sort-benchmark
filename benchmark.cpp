@@ -30,6 +30,8 @@ DEFINE_int32(block_size, 1024, "block size for block based quick sort");
 DEFINE_int32(chunk_size, 4096, "chunk size of streaming merger");
 DEFINE_int32(max_buffer_size, 256, "max buffer size of streaming merger");
 DEFINE_int32(iteration, 3, "iteration times for each benchmark");
+DEFINE_bool(merge_skew, false, "different stream has different data size");
+DEFINE_int32(merge_skew_percent, 80, "how much percent of data does one skew parallelism holds");
 DEFINE_bool(verbose, false, "verbose");
 
 enum Mode {
@@ -131,6 +133,10 @@ void check_flags() {
         std::cout << "min_dop must greater than 0" << std::endl;
         exit(1);
     }
+    if (FLAGS_mode >= Mode::serial_k_merger && FLAGS_min_dop <= 1) {
+        std::cout << "min_dop for merger must greater than 1" << std::endl;
+        exit(1);
+    }
     if (FLAGS_max_dop <= 0) {
         std::cout << "max_dop must greater than 0" << std::endl;
         exit(1);
@@ -149,6 +155,10 @@ void check_flags() {
     }
     if (FLAGS_max_buffer_size <= 0) {
         std::cout << "max_buffer_size must greater than 0" << std::endl;
+        exit(1);
+    }
+    if (FLAGS_merge_skew_percent < 0 || FLAGS_merge_skew_percent > 100) {
+        std::cout << "FLAGS_merge_skew_percent must between 0 and 100" << std::endl;
         exit(1);
     }
     if (FLAGS_iteration <= 0) {
@@ -244,22 +254,50 @@ void benchmark_merger() {
 
         std::vector<std::vector<int32_t>> multi_nums;
         multi_nums.resize(dop);
-        const int32_t avg_data_size = FLAGS_data_size / dop;
-        std::vector<std::thread> init_threads;
-        for (int i = 0; i < dop; ++i) {
-            init_threads.emplace_back([&multi_nums, i, dop, avg_data_size]() {
-                int32_t size = avg_data_size;
-                if (i == dop - 1) {
-                    size = FLAGS_data_size - i * avg_data_size;
-                }
-                CHECK(std::abs(avg_data_size - size) <= dop);
-                multi_nums[i].resize(size);
-                init_nums(multi_nums[i], size);
-                std::sort(multi_nums[i].begin(), multi_nums[i].end());
-            });
-        }
-        for (int i = 0; i < dop; ++i) {
-            init_threads[i].join();
+        if (FLAGS_merge_skew) {
+            // One parallelism holds 80% of data, while the other parallelisms together
+            // hold the remains
+            const int32_t majority_size = static_cast<int32_t>(FLAGS_data_size / 100 * FLAGS_merge_skew_percent);
+            const int32_t minority_size = FLAGS_data_size - majority_size;
+            const int32_t avg_minority_size = minority_size / (dop - 1);
+            std::vector<std::thread> init_threads;
+            for (int i = 0; i < dop; ++i) {
+                init_threads.emplace_back([&multi_nums, i, dop, majority_size, minority_size, avg_minority_size]() {
+                    int32_t size = avg_minority_size;
+                    if (i == 0) {
+                        size = majority_size;
+                    } else {
+                        if (i == dop - 1) {
+                            size = minority_size - (i - 1) * avg_minority_size;
+                        }
+                        CHECK(std::abs(avg_minority_size - size) <= dop - 1);
+                    }
+                    multi_nums[i].resize(size);
+                    init_nums(multi_nums[i], size);
+                    std::sort(multi_nums[i].begin(), multi_nums[i].end());
+                });
+            }
+            for (int i = 0; i < dop; ++i) {
+                init_threads[i].join();
+            }
+        } else {
+            const int32_t avg_data_size = FLAGS_data_size / dop;
+            std::vector<std::thread> init_threads;
+            for (int i = 0; i < dop; ++i) {
+                init_threads.emplace_back([&multi_nums, i, dop, avg_data_size]() {
+                    int32_t size = avg_data_size;
+                    if (i == dop - 1) {
+                        size = FLAGS_data_size - i * avg_data_size;
+                    }
+                    CHECK(std::abs(avg_data_size - size) <= dop);
+                    multi_nums[i].resize(size);
+                    init_nums(multi_nums[i], size);
+                    std::sort(multi_nums[i].begin(), multi_nums[i].end());
+                });
+            }
+            for (int i = 0; i < dop; ++i) {
+                init_threads[i].join();
+            }
         }
 
         for (int32_t cnt = 1; cnt <= FLAGS_iteration; ++cnt) {
