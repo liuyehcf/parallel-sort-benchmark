@@ -66,45 +66,46 @@ std::pair<size_t, size_t> MergePath::_eval_diagnoal_intersection(const int32_t* 
                                                                  const int32_t* right, const size_t r_size,
                                                                  const size_t d_size, const size_t processor_idx,
                                                                  const size_t processor_num) {
-    int32_t diag = processor_idx * d_size / processor_num;
+    size_t diag = processor_idx * d_size / processor_num;
+    CHECK(d_size > 0);
     if (diag > d_size - 1) {
         diag = d_size - 1;
     }
 
-    int32_t high = diag;
-    int32_t low = 0;
+    size_t high = diag;
+    size_t low = 0;
     if (high > l_size) {
         high = l_size;
     }
 
     // binary search
     while (low < high) {
-        int32_t i = low + (high - low) / 2;
-        int32_t j = diag - i;
+        size_t li = low + (high - low) / 2;
+        size_t ri = diag - li;
 
-        auto pair = _is_intersection(left, l_size, i, right, r_size, j);
+        auto pair = _is_intersection(left, l_size, li, right, r_size, ri);
         bool is_intersection = pair.first;
         bool all_true = pair.second;
 
         if (is_intersection) {
-            return std::make_pair(i, j);
+            return std::make_pair(li, ri);
         } else if (all_true) {
-            high = i;
+            high = li;
         } else {
-            low = i + 1;
+            low = li + 1;
         }
     }
 
     // edge cases
-    for (int32_t offset = 0; offset <= 1; offset++) {
-        int32_t i = low + offset;
-        int32_t j = diag - i;
+    for (size_t offset = 0; offset <= 1; offset++) {
+        size_t li = low + offset;
+        size_t ri = diag - li;
 
-        auto pair = _is_intersection(left, l_size, i, right, r_size, j);
+        auto pair = _is_intersection(left, l_size, li, right, r_size, ri);
         bool is_intersection = pair.first;
 
         if (is_intersection) {
-            return std::make_pair(i, j);
+            return std::make_pair(li, ri);
         }
     }
 
