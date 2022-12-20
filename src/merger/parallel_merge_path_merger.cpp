@@ -9,8 +9,8 @@ void ParallelMergePathInternalNode::_process(const std::vector<int32_t>& left, i
     const bool r_has_more = !_r_child->eos();
     const bool l_lt_chunk_size = ((left.size() - li) < _chunk_size);
     const bool r_lt_chunk_size = ((right.size() - ri) < _chunk_size);
-    int32_t l_size;
-    int32_t r_size;
+    size_t l_size;
+    size_t r_size;
     if (l_lt_chunk_size && l_has_more && r_lt_chunk_size && r_has_more) {
         l_need_more = true;
         r_need_more = true;
@@ -38,8 +38,8 @@ void ParallelMergePathInternalNode::_process(const std::vector<int32_t>& left, i
     } else {
         merged.resize(std::min(l_size, r_size));
     }
-    int32_t l_step;
-    int32_t r_step;
+    size_t l_step;
+    size_t r_step;
     MergePath::merge(&left.data()[li], l_size, &l_step, &right.data()[ri], r_size, &r_step, merged.data(),
                      merged.size(), _processor_num);
 

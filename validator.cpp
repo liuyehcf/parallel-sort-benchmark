@@ -53,8 +53,8 @@ void validate_merge_path() {
                 std::cout << "cnt=" << cnt << ", l_len=" << l_len << ", r_len=" << r_len << std::endl;
                 std::vector<int32_t> dest;
                 dest.resize(l_len + r_len);
-                int32_t l_step;
-                int32_t r_step;
+                size_t l_step;
+                size_t r_step;
                 MergePath::merge(left.data(), l_len, &l_step, right.data(), r_len, &r_step, dest.data(), dest.size(),
                                  PROCESSOR_NUM_U(E));
                 CHECK(l_step + r_step == dest.size());
@@ -65,8 +65,8 @@ void validate_merge_path() {
         }
         std::vector<int32_t> dest;
         dest.resize(left.size() + right.size());
-        int32_t l_step;
-        int32_t r_step;
+        size_t l_step;
+        size_t r_step;
         MergePath::merge(left.data(), left.size(), &l_step, right.data(), right.size(), &r_step, dest.data(),
                          dest.size(), PROCESSOR_NUM_U(E));
         CHECK(left.size() + right.size() == dest.size());
