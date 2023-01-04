@@ -3,8 +3,8 @@
 #include "merge_path.h"
 #include "util.h"
 
-void ParallelMergePathInternalNode::_process(const std::vector<int32_t>& left, int32_t& li, bool& l_need_more,
-                                             const std::vector<int32_t>& right, int32_t& ri, bool& r_need_more) {
+void ParallelMergePathInternalNode::_process(std::vector<int32_t>& left, int32_t& li, bool& l_need_more,
+                                             std::vector<int32_t>& right, int32_t& ri, bool& r_need_more) {
     const bool l_has_more = !_l_child->eos();
     const bool r_has_more = !_r_child->eos();
     const bool l_lt_chunk_size = ((left.size() - li) < _chunk_size);
@@ -38,10 +38,13 @@ void ParallelMergePathInternalNode::_process(const std::vector<int32_t>& left, i
     } else {
         merged.resize(std::min(l_size, r_size));
     }
-    size_t l_step;
-    size_t r_step;
-    MergePath::merge(&left.data()[li], l_size, &l_step, &right.data()[ri], r_size, &r_step, merged.data(),
-                     merged.size(), _processor_num);
+
+    Segment s_left(left, li, l_size);
+    Segment s_right(right, ri, r_size);
+    Segment s_dest(merged, 0, merged.size());
+    MergePath::merge(s_left, s_right, s_dest, _processor_num);
+    size_t l_step = s_left.forward;
+    size_t r_step = s_right.forward;
 
     CHECK(l_step + r_step == merged.size());
     li += l_step;

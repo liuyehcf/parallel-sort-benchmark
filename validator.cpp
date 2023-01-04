@@ -53,10 +53,12 @@ void validate_merge_path() {
                 std::cout << "cnt=" << cnt << ", l_len=" << l_len << ", r_len=" << r_len << std::endl;
                 std::vector<int32_t> dest;
                 dest.resize(l_len + r_len);
-                size_t l_step;
-                size_t r_step;
-                MergePath::merge(left.data(), l_len, &l_step, right.data(), r_len, &r_step, dest.data(), dest.size(),
-                                 PROCESSOR_NUM_U(E));
+                Segment s_left(left, 0, l_len);
+                Segment s_right(right, 0, r_len);
+                Segment s_dest(dest, 0, dest.size());
+                MergePath::merge(s_left, s_right, s_dest, PROCESSOR_NUM_U(E));
+                size_t l_step = s_left.forward;
+                size_t r_step = s_right.forward;
                 CHECK(l_step + r_step == dest.size());
                 for (int32_t i = 0; i < std::min(l_len, r_len); i++) {
                     CHECK(dest[i] == expected_nums[i]);
@@ -65,10 +67,13 @@ void validate_merge_path() {
         }
         std::vector<int32_t> dest;
         dest.resize(left.size() + right.size());
-        size_t l_step;
-        size_t r_step;
-        MergePath::merge(left.data(), left.size(), &l_step, right.data(), right.size(), &r_step, dest.data(),
-                         dest.size(), PROCESSOR_NUM_U(E));
+        Segment s_left(left, 0, left.size());
+        Segment s_right(right, 0, right.size());
+        Segment s_dest(dest, 0, dest.size());
+        MergePath::merge(s_left, s_right, s_dest, PROCESSOR_NUM_U(E));
+        size_t l_step = s_left.forward;
+        size_t r_step = s_right.forward;
+        CHECK(l_step + r_step == dest.size());
         CHECK(left.size() + right.size() == dest.size());
         for (int32_t i = 0; i < dest.size(); i++) {
             CHECK(dest[i] == expected_nums[i]);

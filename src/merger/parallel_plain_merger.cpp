@@ -4,8 +4,8 @@
 
 #include "util.h"
 
-void ParallelPlainMergeInternalNode::_process(const std::vector<int32_t>& left, int32_t& li, bool& l_need_more,
-                                              const std::vector<int32_t>& right, int32_t& ri, bool& r_need_more) {
+void ParallelPlainMergeInternalNode::_process(std::vector<int32_t>& left, int32_t& li, bool& l_need_more,
+                                              std::vector<int32_t>& right, int32_t& ri, bool& r_need_more) {
     std::unique_lock<std::mutex> l(_m);
     while (li < left.size() && ri < right.size()) {
         if (left[li] <= right[ri]) {

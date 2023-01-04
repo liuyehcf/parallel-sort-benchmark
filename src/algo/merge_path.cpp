@@ -5,47 +5,29 @@
 
 #include "util.h"
 
-void MergePath::merge(const int32_t* left, const size_t l_size, size_t* const l_step, const int32_t* right,
-                      const size_t r_size, size_t* const r_step, int32_t* const dest, const size_t d_size,
-                      const size_t processor_num) {
+void MergePath::merge(Segment& left, Segment& right, Segment& dest, const size_t processor_num) {
     CHECK(processor_num > 0);
 
-    if (d_size <= 0) {
-        if (l_step != nullptr) {
-            *l_step = 0;
-        }
-        if (r_step != nullptr) {
-            *r_step = 0;
-        }
+    if (dest.len == 0) {
+        left.forward = 0;
+        right.forward = 0;
         return;
     }
 
-    const size_t length = (l_size + r_size) / processor_num + 1;
+    const size_t length = (left.len + right.len) / processor_num + 1;
     std::vector<std::thread> threads;
 
-    std::atomic<size_t> l_step_atomic(0);
-    std::atomic<size_t> r_step_atomic(0);
-
-    for (size_t i = 0; i < processor_num; ++i) {
-        threads.emplace_back([left, l_size, &l_step_atomic, right, r_size, &r_step_atomic, dest, d_size, length, i,
-                              processor_num]() {
-            auto pair = _eval_diagnoal_intersection(left, l_size, right, r_size, d_size, i, processor_num);
+    for (size_t processor_idx = 0; processor_idx < processor_num; ++processor_idx) {
+        threads.emplace_back([&left, &right, &dest, length, processor_idx, processor_num]() {
+            auto pair = _eval_diagnoal_intersection(left, right, dest.len, processor_idx, processor_num);
             size_t li = pair.first;
             size_t ri = pair.second;
-            size_t di = i * (d_size) / processor_num;
-            _do_merge_along_merge_path(left, l_size, li, right, r_size, ri, dest, d_size, di, length);
+            size_t di = dest.start + (processor_idx * (dest.len) / processor_num);
+            _do_merge_along_merge_path(left, li, right, ri, dest, di, length);
 
-            size_t l_old = l_step_atomic;
-            while (li > l_old) {
-                if (l_step_atomic.compare_exchange_strong(l_old, li)) {
-                    break;
-                }
-            }
-            size_t r_old = r_step_atomic;
-            while (ri > r_old) {
-                if (r_step_atomic.compare_exchange_strong(r_old, ri)) {
-                    break;
-                }
+            if (processor_idx == processor_num - 1) {
+                left.forward = li - left.start;
+                right.forward = ri - right.start;
             }
         });
     }
@@ -53,17 +35,9 @@ void MergePath::merge(const int32_t* left, const size_t l_size, size_t* const l_
     for (size_t i = 0; i < threads.size(); ++i) {
         threads[i].join();
     }
-
-    if (l_step != nullptr) {
-        *l_step = l_step_atomic;
-    }
-    if (r_step != nullptr) {
-        *r_step = r_step_atomic;
-    }
 }
 
-std::pair<size_t, size_t> MergePath::_eval_diagnoal_intersection(const int32_t* left, const size_t l_size,
-                                                                 const int32_t* right, const size_t r_size,
+std::pair<size_t, size_t> MergePath::_eval_diagnoal_intersection(const Segment& left, const Segment& right,
                                                                  const size_t d_size, const size_t processor_idx,
                                                                  const size_t processor_num) {
     size_t diag = processor_idx * d_size / processor_num;
@@ -74,38 +48,38 @@ std::pair<size_t, size_t> MergePath::_eval_diagnoal_intersection(const int32_t* 
 
     size_t high = diag;
     size_t low = 0;
-    if (high > l_size) {
-        high = l_size;
+    if (high > left.len) {
+        high = left.len;
     }
 
     // binary search
     while (low < high) {
-        size_t li = low + (high - low) / 2;
-        size_t ri = diag - li;
+        size_t l_offset = low + (high - low) / 2;
+        size_t r_offset = diag - l_offset;
 
-        auto pair = _is_intersection(left, l_size, li, right, r_size, ri);
+        auto pair = _is_intersection(left, left.start + l_offset, right, right.start + r_offset);
         bool is_intersection = pair.first;
         bool all_true = pair.second;
 
         if (is_intersection) {
-            return std::make_pair(li, ri);
+            return std::make_pair(left.start + l_offset, right.start + r_offset);
         } else if (all_true) {
-            high = li;
+            high = l_offset;
         } else {
-            low = li + 1;
+            low = l_offset + 1;
         }
     }
 
     // edge cases
     for (size_t offset = 0; offset <= 1; offset++) {
-        size_t li = low + offset;
-        size_t ri = diag - li;
+        size_t l_offset = (low + offset);
+        size_t r_offset = (diag - l_offset);
 
-        auto pair = _is_intersection(left, l_size, li, right, r_size, ri);
+        auto pair = _is_intersection(left, left.start + l_offset, right, right.start + r_offset);
         bool is_intersection = pair.first;
 
         if (is_intersection) {
-            return std::make_pair(li, ri);
+            return std::make_pair(left.start + l_offset, right.start + r_offset);
         }
     }
 
@@ -113,24 +87,24 @@ std::pair<size_t, size_t> MergePath::_eval_diagnoal_intersection(const int32_t* 
     return {};
 }
 
-std::pair<bool, bool> MergePath::_is_intersection(const int32_t* left, const size_t l_size, const size_t li,
-                                                  const int32_t* right, const size_t r_size, const size_t ri) {
+std::pair<bool, bool> MergePath::_is_intersection(const Segment& left, const size_t li, const Segment& right,
+                                                  const size_t ri) {
     // M matrix is a matrix conprising of only boolean value
     // if A[i] > B[j], then M[i, j] = true
     // if A[i] <= B[j], then M[i, j] = false
     // and for the edge cases (i or j beyond the matrix), think about the merge path, with A as the vertical vector and B as the horizontal vector,
     // which goes from left top to right bottom, the positions below the merge path should be true, and otherwise should be false
-    auto evaluator = [left, right, l_size, r_size](int64_t i, int64_t j) {
+    auto evaluator = [&left, &right](int64_t i, int64_t j) {
         if (i < 0) {
             return false;
-        } else if (i >= static_cast<int64_t>(l_size)) {
+        } else if (i >= static_cast<int64_t>(left.start + left.len)) {
             return true;
         } else if (j < 0) {
             return true;
-        } else if (j >= static_cast<int64_t>(r_size)) {
+        } else if (j >= static_cast<int64_t>(right.start + right.len)) {
             return false;
         } else {
-            return left[i] > right[j];
+            return left.data[i] > right.data[j];
         }
     };
 
@@ -161,25 +135,24 @@ std::pair<bool, bool> MergePath::_is_intersection(const int32_t* left, const siz
     return std::make_pair(has_true && has_false, has_true);
 }
 
-void MergePath::_do_merge_along_merge_path(const int32_t* left, const size_t l_size, size_t& li, const int32_t* right,
-                                           const size_t r_size, size_t& ri, int32_t* const dest, const size_t d_size,
-                                           size_t& di, const size_t length) {
+void MergePath::_do_merge_along_merge_path(const Segment& left, size_t& li, const Segment& right, size_t& ri,
+                                           Segment& dest, size_t& di, const size_t length) {
     const size_t d_start = di;
-    while (di - d_start < length && di < d_size) {
-        if (li >= l_size) {
-            dest[di] = right[ri];
+    while (di - d_start < length && di < dest.start + dest.len) {
+        if (li >= left.start + left.len) {
+            dest.data[di] = right.data[ri];
             di++;
             ri++;
-        } else if (ri >= r_size) {
-            dest[di] = left[li];
+        } else if (ri >= right.start + right.len) {
+            dest.data[di] = left.data[li];
             di++;
             li++;
-        } else if (left[li] <= right[ri]) {
-            dest[di] = left[li];
+        } else if (left.data[li] <= right.data[ri]) {
+            dest.data[di] = left.data[li];
             di++;
             li++;
         } else {
-            dest[di] = right[ri];
+            dest.data[di] = right.data[ri];
             di++;
             ri++;
         }

@@ -11,8 +11,8 @@ public:
             : InternalNode(chunk_size, max_buffer_size, right, left) {}
 
 protected:
-    virtual void _process(const std::vector<int32_t>& left, int32_t& li, bool& l_need_more,
-                          const std::vector<int32_t>& right, int32_t& ri, bool& r_need_more) override;
+    virtual void _process(std::vector<int32_t>& left, int32_t& li, bool& l_need_more, std::vector<int32_t>& right,
+                          int32_t& ri, bool& r_need_more) override;
 };
 
 class ParallelPlainMerger : public StreamMerger {
