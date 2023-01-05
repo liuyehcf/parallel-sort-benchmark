@@ -26,11 +26,11 @@ public:
     static void merge(Segment& left, Segment& right, Segment& dest, const size_t processor_num);
 
 private:
-    static std::pair<size_t, size_t> _eval_diagnoal_intersection(const Segment& left, const Segment& right,
-                                                                 const size_t d_size, const size_t processor_idx,
-                                                                 const size_t processor_num);
-    static std::pair<bool, bool> _is_intersection(const Segment& left, const size_t li, const Segment& right,
-                                                  const size_t ri);
+    static void _eval_diagnoal_intersection(const Segment& left, const Segment& right, const size_t d_size,
+                                            const size_t processor_idx, const size_t processor_num, size_t& li,
+                                            size_t& ri);
+    static void _is_intersection(const Segment& left, const size_t li, const Segment& right, const size_t ri,
+                                 bool& has_true, bool& has_false);
     static void _do_merge_along_merge_path(const Segment& left, size_t& li, const Segment& right, size_t& ri,
                                            Segment& dest, size_t& di, const size_t length);
 };
