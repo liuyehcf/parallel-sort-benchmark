@@ -14,15 +14,20 @@ void MergePath::merge(Segment& left, Segment& right, Segment& dest, const size_t
         return;
     }
 
-    const size_t length = (left.len + right.len) / processor_num + 1;
     std::vector<std::thread> threads;
+    std::atomic<size_t> forward_length(0);
 
     for (size_t processor_idx = 0; processor_idx < processor_num; ++processor_idx) {
-        threads.emplace_back([&left, &right, &dest, length, processor_idx, processor_num]() {
+        threads.emplace_back([&left, &right, &dest, &forward_length, processor_idx, processor_num]() {
             auto pair = _eval_diagnoal_intersection(left, right, dest.len, processor_idx, processor_num);
             size_t li = pair.first;
             size_t ri = pair.second;
-            size_t di = dest.start + (processor_idx * (dest.len) / processor_num);
+            size_t di = dest.start + (processor_idx * dest.len / processor_num);
+
+            size_t next_di = dest.start + ((processor_idx + 1) * dest.len / processor_num);
+            const size_t length = next_di - di;
+            forward_length += length;
+
             _do_merge_along_merge_path(left, li, right, ri, dest, di, length);
 
             if (processor_idx == processor_num - 1) {
@@ -35,16 +40,14 @@ void MergePath::merge(Segment& left, Segment& right, Segment& dest, const size_t
     for (size_t i = 0; i < threads.size(); ++i) {
         threads[i].join();
     }
+    CHECK(forward_length == dest.len);
 }
 
 std::pair<size_t, size_t> MergePath::_eval_diagnoal_intersection(const Segment& left, const Segment& right,
                                                                  const size_t d_size, const size_t processor_idx,
                                                                  const size_t processor_num) {
-    size_t diag = processor_idx * d_size / processor_num;
-    CHECK(d_size > 0);
-    if (diag > d_size - 1) {
-        diag = d_size - 1;
-    }
+    const size_t diag = processor_idx * d_size / processor_num;
+    CHECK(diag < d_size);
 
     size_t high = diag;
     size_t low = 0;
