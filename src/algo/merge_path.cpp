@@ -58,6 +58,7 @@ std::pair<size_t, size_t> MergePath::_eval_diagnoal_intersection(const Segment& 
     // binary search
     while (low < high) {
         size_t l_offset = low + (high - low) / 2;
+        CHECK(l_offset <= diag);
         size_t r_offset = diag - l_offset;
 
         auto pair = _is_intersection(left, left.start + l_offset, right, right.start + r_offset);
@@ -75,8 +76,11 @@ std::pair<size_t, size_t> MergePath::_eval_diagnoal_intersection(const Segment& 
 
     // edge cases
     for (size_t offset = 0; offset <= 1; offset++) {
-        size_t l_offset = (low + offset);
-        size_t r_offset = (diag - l_offset);
+        size_t l_offset = low + offset;
+        if (l_offset > diag) {
+            break;
+        }
+        size_t r_offset = diag - l_offset;
 
         auto pair = _is_intersection(left, left.start + l_offset, right, right.start + r_offset);
         bool is_intersection = pair.first;
@@ -98,11 +102,11 @@ std::pair<bool, bool> MergePath::_is_intersection(const Segment& left, const siz
     // and for the edge cases (i or j beyond the matrix), think about the merge path, with A as the vertical vector and B as the horizontal vector,
     // which goes from left top to right bottom, the positions below the merge path should be true, and otherwise should be false
     auto evaluator = [&left, &right](int64_t i, int64_t j) {
-        if (i < 0) {
+        if (i < static_cast<int64_t>(left.start)) {
             return false;
         } else if (i >= static_cast<int64_t>(left.start + left.len)) {
             return true;
-        } else if (j < 0) {
+        } else if (j < static_cast<int64_t>(right.start)) {
             return true;
         } else if (j >= static_cast<int64_t>(right.start + right.len)) {
             return false;

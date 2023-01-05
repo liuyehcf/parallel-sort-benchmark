@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <iterator>
 #include <random>
 
 #include "blocking_sorter.h"
@@ -45,23 +46,37 @@ void validate_merge_path() {
         std::sort(right.begin(), right.end());
         std::sort(expected_nums.begin(), expected_nums.end());
 
-        for (int32_t l_len = 0; l_len <= left.size(); l_len++) {
-            for (int32_t r_len = 0; r_len <= right.size(); r_len++) {
+        for (int32_t l_len = 0, l_len_inc = 1; l_len <= left.size(); l_len += l_len_inc, l_len_inc++) {
+            for (int32_t r_len = 0, r_len_inc = 1; r_len <= right.size(); r_len += r_len_inc, r_len_inc++) {
                 if (l_len == 0 || r_len == 0) {
                     continue;
                 }
-                std::cout << "cnt=" << cnt << ", l_len=" << l_len << ", r_len=" << r_len << std::endl;
-                std::vector<int32_t> dest;
-                dest.resize(l_len + r_len);
-                Segment s_left(left, 0, l_len);
-                Segment s_right(right, 0, r_len);
-                Segment s_dest(dest, 0, dest.size());
-                MergePath::merge(s_left, s_right, s_dest, PROCESSOR_NUM_U(E));
-                size_t l_step = s_left.forward;
-                size_t r_step = s_right.forward;
-                CHECK(l_step + r_step == dest.size());
-                for (int32_t i = 0; i < std::min(l_len, r_len); i++) {
-                    CHECK(dest[i] == expected_nums[i]);
+                for (int32_t l_start = 0, l_start_inc = 1; l_start + l_len <= left.size();
+                     l_start += l_start_inc, l_start_inc++) {
+                    for (int32_t r_start = 0, r_start_inc = 1; r_start + r_len <= right.size();
+                         r_start += r_start_inc, r_start_inc++) {
+                        std::cout << "cnt=" << cnt << ", l_start=" << l_start << ", l_len=" << l_len
+                                  << ", r_start=" << r_start << ", r_len=" << r_len << std::endl;
+                        std::vector<int32_t> dest;
+                        dest.resize(l_len + r_len);
+                        Segment s_left(left, l_start, l_len);
+                        Segment s_right(right, r_start, r_len);
+                        Segment s_dest(dest, 0, dest.size());
+                        MergePath::merge(s_left, s_right, s_dest, PROCESSOR_NUM_U(E));
+                        size_t l_step = s_left.forward;
+                        size_t r_step = s_right.forward;
+                        CHECK(l_step + r_step == dest.size());
+
+                        std::vector<int32_t> partial_expected_nums;
+                        std::copy(left.begin() + l_start, left.begin() + l_start + l_len,
+                                  std::back_inserter(partial_expected_nums));
+                        std::copy(right.begin() + r_start, right.begin() + r_start + r_len,
+                                  std::back_inserter(partial_expected_nums));
+                        std::sort(partial_expected_nums.begin(), partial_expected_nums.end());
+                        for (int32_t i = 0; i < std::min(l_len, r_len); i++) {
+                            CHECK(dest[i] == partial_expected_nums[i]);
+                        }
+                    }
                 }
             }
         }
